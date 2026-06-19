@@ -2,6 +2,8 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
+const PROMPT_FILE_PATH = join(homedir(), '.claude-auto-retry.prompt');
+
 // Transient API-error backoff (529 Overloaded / 500 / 503). Separate block from
 // the usage-limit knobs above: those wait in *hours* until a reset, these wait in
 // *seconds* on an exponential backoff. See README "Overload backoff".
@@ -50,6 +52,7 @@ export const DEFAULT_CONFIG = {
   marginSeconds: 60,
   fallbackWaitHours: 5,
   retryMessage: 'Continue where you left off. The previous attempt was rate limited.',
+  promptFile: PROMPT_FILE_PATH,
   customPatterns: [],
   overload: DEFAULT_OVERLOAD,
 };
@@ -117,6 +120,9 @@ function validate(cfg) {
       if (typeof p !== 'string') return false;
       try { new RegExp(p); return true; } catch { return false; }
     });
+  }
+  if (typeof cfg.promptFile !== 'string' || !cfg.promptFile) {
+    cfg.promptFile = DEFAULT_CONFIG.promptFile;
   }
   if (cfg.foregroundCommands !== undefined) {
     if (!Array.isArray(cfg.foregroundCommands) || cfg.foregroundCommands.length === 0) {
