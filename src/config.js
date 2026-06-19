@@ -2,12 +2,15 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 
+const PROMPT_FILE_PATH = join(homedir(), '.claude-auto-retry.prompt');
+
 export const DEFAULT_CONFIG = {
   maxRetries: 5,
   pollIntervalSeconds: 5,
   marginSeconds: 60,
   fallbackWaitHours: 5,
   retryMessage: 'Continue where you left off. The previous attempt was rate limited.',
+  promptFile: PROMPT_FILE_PATH,
   customPatterns: [],
 };
 
@@ -32,6 +35,9 @@ function validate(cfg) {
       if (typeof p !== 'string') return false;
       try { new RegExp(p); return true; } catch { return false; }
     });
+  }
+  if (typeof cfg.promptFile !== 'string' || !cfg.promptFile) {
+    cfg.promptFile = DEFAULT_CONFIG.promptFile;
   }
   if (cfg.foregroundCommands !== undefined) {
     if (!Array.isArray(cfg.foregroundCommands) || cfg.foregroundCommands.length === 0) {

@@ -1,8 +1,24 @@
+import { readFile, writeFile } from 'node:fs/promises';
 import { stripAnsi, isRateLimited, findRateLimitMessage } from './patterns.js';
 import { parseResetTime, calculateWaitMs } from './time-parser.js';
 import { capturePane, sendKeys, getPaneCommand, isProcessForeground } from './tmux.js';
 import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
+
+async function readPromptFile(promptFile) {
+  try {
+    const content = await readFile(promptFile, 'utf-8');
+    return content.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
+async function clearPromptFile(promptFile) {
+  try {
+    await writeFile(promptFile, '');
+  } catch {}
+}
 
 const DEFAULT_FOREGROUND_COMMANDS = ['node', 'claude', 'npx', 'tsx', 'bun', 'deno'];
 
@@ -54,7 +70,8 @@ export async function processOneTick(state, tmuxAdapter, pane, config, isAlive) 
     // (e.g. pane destroyed) still consumes a retry and avoids tight-loop errors.
     state.attempts++;
     state.waitUntil = Date.now() + 30_000;
-    await tmuxAdapter.sendKeys(pane, config.retryMessage);
+    const filePrompt = await readPromptFile(config.promptFile);
+    await tmuxAdapter.sendKeys(pane, filePrompt || config.retryMessage);
     return 'retried';
   }
 
@@ -94,7 +111,10 @@ export async function startMonitor(pane, pid) {
         state.lastRateLimitMessage = null;
       }
       if (result === 'retried') await logger.info(`Sent retry message (attempt ${state.attempts})`);
-      if (result === 'user-continued') await logger.info('User already continued. Attempt counter reset.');
+      if (result === 'user-continued') {
+        await clearPromptFile(config.promptFile);
+        await logger.info('User already continued. Attempt counter reset.');
+      }
       if (result === 'max-retries') await logger.warn(`Max retries (${config.maxRetries}) reached. Monitor still active but will not send further retries until rate limit clears.`);
       if (result === 'skipped-not-claude') await logger.warn(`Foreground is "${state._lastForeground}", not Claude. Skipping send-keys. (Add to foregroundCommands in ~/.claude-auto-retry.json if this is wrong)`);
     } catch (err) {
