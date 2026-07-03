@@ -81,6 +81,12 @@ export function calculateWaitMs(parsed, marginSeconds = 60, fallbackHours = 5, n
       candidate += diffMin * 60_000;
     }
 
+    // Negative-offset timezones (e.g. America/Los_Angeles) can converge to
+    // the wrong calendar day: the naive UTC guess undershoots into "today"
+    // read as UTC, and the loop above only fixes hour:minute, not the date.
+    // If we landed more than 12h in the past, we picked yesterday — roll forward.
+    if (now.getTime() - candidate > 12 * 3600_000) candidate += 86400_000;
+
     return candidate;
   }
 
