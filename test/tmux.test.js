@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { buildCaptureArgs, buildSendKeysArgs, buildDisplayArgs, parseTmuxVersion } from '../src/tmux.js';
+import { buildCaptureArgs, buildSendKeysArgs, buildDisplayArgs, buildEnterArgs, parseTmuxVersion } from '../src/tmux.js';
 
 describe('buildCaptureArgs', () => {
   it('builds correct args', () => {
@@ -18,6 +18,11 @@ describe('buildDisplayArgs', () => {
   it('builds correct args', () => {
     assert.deepEqual(buildDisplayArgs('%3', '#{pane_current_command}'),
       ['display-message', '-t', '%3', '-p', '#{pane_current_command}']);
+  });
+});
+describe('buildEnterArgs', () => {
+  it('builds correct args', () => {
+    assert.deepEqual(buildEnterArgs('%3'), ['send-keys', '-t', '%3', 'Enter']);
   });
 });
 describe('parseTmuxVersion', () => {

@@ -6,9 +6,11 @@ import { DEFAULT_CONFIG } from '../src/config.js';
 function mockTmux(paneContent = '', paneCommand = 'node', claudeForeground = true) {
   const t = {
     _sent: [],
+    _enterSent: 0,
     capturePane: async () => paneContent,
     getPaneCommand: async () => paneCommand,
     sendKeys: async (_p, text) => { t._sent.push(text); },
+    sendEnter: async () => { t._enterSent++; },
     isClaudeForeground: async () => claudeForeground,
   };
   return t;
@@ -49,6 +51,16 @@ describe('processOneTick', () => {
     const s = createMonitorState();
     assert.equal(await processOneTick(s, t, '%0', DEFAULT_CONFIG, () => true), 'waiting');
     assert.ok(s.waitUntil > Date.now());
+  });
+  it('dismisses the rate limit confirmation menu without retrying', async () => {
+    const menu = '   What do you want to do?\n\n   > 1. Stop and wait for limit to reset\n     2. Upgrade your plan\n\n   Enter to confirm . Esc to cancel';
+    const t = mockTmux(menu);
+    const s = createMonitorState();
+    assert.equal(await processOneTick(s, t, '%0', DEFAULT_CONFIG, () => true), 'menu-dismissed');
+    assert.equal(t._enterSent, 1);
+    assert.equal(t._sent.length, 0);
+    assert.equal(s.attempts, 0);
+    assert.equal(s.status, 'monitoring');
   });
   it('retries when Claude process is in foreground (fixes macOS zsh issue)', async () => {
     const t = mockTmux('5-hour limit reached - resets 3pm (UTC)', 'zsh', true);

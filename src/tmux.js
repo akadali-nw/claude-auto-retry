@@ -15,6 +15,10 @@ export function buildDisplayArgs(pane, format) {
   return ['display-message', '-t', pane, '-p', format];
 }
 
+export function buildEnterArgs(pane) {
+  return ['send-keys', '-t', pane, 'Enter'];
+}
+
 export function parseTmuxVersion(versionString) {
   const match = versionString.match(/tmux\s+(\d+\.\d+)/);
   return match ? parseFloat(match[1]) : 0;
@@ -33,6 +37,10 @@ export async function capturePane(pane, lines = 200) {
 
 export async function sendKeys(pane, text) {
   await execFileAsync('tmux', buildSendKeysArgs(pane, text));
+}
+
+export async function sendEnter(pane) {
+  await execFileAsync('tmux', buildEnterArgs(pane));
 }
 
 export async function getPaneCommand(pane) {

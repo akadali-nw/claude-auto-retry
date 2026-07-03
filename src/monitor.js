@@ -1,7 +1,7 @@
 import { readFile, writeFile } from 'node:fs/promises';
-import { stripAnsi, isRateLimited, findRateLimitMessage } from './patterns.js';
+import { stripAnsi, isRateLimited, findRateLimitMessage, isRateLimitMenu } from './patterns.js';
 import { parseResetTime, calculateWaitMs } from './time-parser.js';
-import { capturePane, sendKeys, getPaneCommand, isProcessForeground } from './tmux.js';
+import { capturePane, sendKeys, sendEnter, getPaneCommand, isProcessForeground } from './tmux.js';
 import { loadConfig } from './config.js';
 import { createLogger } from './logger.js';
 
@@ -75,6 +75,11 @@ export async function processOneTick(state, tmuxAdapter, pane, config, isAlive) 
     return 'retried';
   }
 
+  if (isRateLimitMenu(stripped)) {
+    await tmuxAdapter.sendEnter(pane);
+    return 'menu-dismissed';
+  }
+
   if (isRateLimited(stripped, config.customPatterns)) {
     const message = findRateLimitMessage(stripped, config.customPatterns);
     state.lastRateLimitMessage = message;
@@ -96,7 +101,7 @@ export async function startMonitor(pane, pid) {
 
   await logger.info(`Monitor started for pane ${pane} (claude PID: ${pid})`);
 
-  const tmuxAdapter = { capturePane, sendKeys, getPaneCommand, isClaudeForeground: () => isProcessForeground(pid) };
+  const tmuxAdapter = { capturePane, sendKeys, sendEnter, getPaneCommand, isClaudeForeground: () => isProcessForeground(pid) };
   const isAlive = () => { try { process.kill(pid, 0); return true; } catch { return false; } };
 
   const loop = async () => {
@@ -111,6 +116,7 @@ export async function startMonitor(pane, pid) {
         state.lastRateLimitMessage = null;
       }
       if (result === 'retried') await logger.info(`Sent retry message (attempt ${state.attempts})`);
+      if (result === 'menu-dismissed') await logger.info('Rate limit confirmation menu detected. Sent Enter to dismiss.');
       if (result === 'user-continued') {
         await clearPromptFile(config.promptFile);
         await logger.info('User already continued. Attempt counter reset.');

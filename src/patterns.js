@@ -70,6 +70,33 @@ export function isRateLimited(text, customPatterns = []) {
   return false;
 }
 
+// Claude Code sometimes shows a selectable confirmation menu instead of a
+// text banner, with no reset time on screen at all, e.g.:
+//   "What do you want to do?"
+//   "> 1. Stop and wait for limit to reset"
+// Detection: same nearby-lines approach as isRateLimited, but a distinct
+// patterns list — kept independent of isRateLimited/findRateLimitMessage.
+
+const MENU_PROMPT_PATTERNS = [
+  /what do you want to do/i,
+];
+
+const MENU_OPTION_PATTERNS = [
+  /stop and wait.*limit/i,
+];
+
+export function isRateLimitMenu(text) {
+  const lines = stripAnsi(text).split('\n');
+
+  for (let i = 0; i < lines.length; i++) {
+    if (MENU_PROMPT_PATTERNS.some(p => p.test(lines[i]))) {
+      if (hasNearbyMatch(lines, i, MENU_OPTION_PATTERNS)) return true;
+    }
+  }
+
+  return false;
+}
+
 export function findRateLimitMessage(text, customPatterns = []) {
   const lines = stripAnsi(text).split('\n');
 

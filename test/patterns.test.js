@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { stripAnsi, isRateLimited, findRateLimitMessage } from '../src/patterns.js';
+import { stripAnsi, isRateLimited, findRateLimitMessage, isRateLimitMenu } from '../src/patterns.js';
 
 describe('stripAnsi', () => {
   it('removes bold codes', () => {
@@ -126,5 +126,24 @@ describe('stripAnsi (OSC sequences)', () => {
   it('rate limit detection works through OSC hyperlinks', () => {
     const input = '\x1b]8;;link\x1b\\5-hour limit reached\x1b]8;;\x1b\\ - resets 3pm';
     assert.ok(isRateLimited(input));
+  });
+});
+
+describe('isRateLimitMenu', () => {
+  it('detects the rate limit confirmation menu', () => {
+    const text = '   What do you want to do?\n\n   > 1. Stop and wait for limit to reset\n     2. Upgrade your plan\n\n   Enter to confirm . Esc to cancel';
+    assert.equal(isRateLimitMenu(text), true);
+  });
+  it('returns false for a normal chat screen', () => {
+    assert.equal(isRateLimitMenu('I can help you with that code'), false);
+  });
+  it('returns false for the old-style text banner (no double-fire)', () => {
+    assert.equal(isRateLimitMenu('5-hour limit reached - resets 3pm'), false);
+  });
+  it('returns false for empty string', () => {
+    assert.equal(isRateLimitMenu(''), false);
+  });
+  it('returns false for "what do you want to do" without the stop-and-wait option nearby', () => {
+    assert.equal(isRateLimitMenu('What do you want to do?\n1. Continue\n2. Cancel'), false);
   });
 });
